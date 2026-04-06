@@ -31,9 +31,9 @@ There's no standalone App UI for this module. Just install, activate, and you ar
 ## Screenshots
 
 <div align="center">
-    <img src="images/screenshot_01.png" width="300" style="margin: 5px;" alt="Screenshot 1" />
-    <img src="images/screenshot_02.png" width="300" style="margin: 5px;" alt="Screenshot 2" />
-    <img src="images/screenshot_03.png" width="300" style="margin: 5px;" alt="Screenshot 3" />
+    <img src="images/screenshot_001.png" width="300" style="margin: 5px;" alt="Screenshot 1" />
+    <img src="images/screenshot_002.png" width="300" style="margin: 5px;" alt="Screenshot 2" />
+    <img src="images/screenshot_003.png" width="300" style="margin: 5px;" alt="Screenshot 3" />
 </div>
 
 ## Download Target Application
