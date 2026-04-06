@@ -8,9 +8,17 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
-public class MainModule implements IXposedHookLoadPackage {
+import de.robv.android.xposed.IXposedHookZygoteInit;
+
+public class MainModule implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private static final String TARGET_CLASS = "com.oplus.content.OplusFeatureConfigManager";
+    private static String modulePath;
+
+    @Override
+    public void initZygote(StartupParam startupParam) throws Throwable {
+        modulePath = startupParam.modulePath;
+    }
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
@@ -24,18 +32,33 @@ public class MainModule implements IXposedHookLoadPackage {
             return;
         }
             
-            // 1. Hook ClassLoader để bypass NoClassDefFoundError cho OplusFeatureConfigManager
-            // Việc thu hẹp phạm vi hook này rất quan trọng để tránh làm chậm hệ thống (classloader loadClass được gọi hàng vạn lần)
+        // 1. Inject module Dex vào ClassLoader của App để xử lý tận gốc NoClassDefFoundError (Natively by ART ClassLinker)
+        try {
+            Object pathList = XposedHelpers.getObjectField(lpparam.classLoader, "pathList");
+            Object[] dexElements = (Object[]) XposedHelpers.getObjectField(pathList, "dexElements");
+
+            ClassLoader tempLoader = new dalvik.system.PathClassLoader(modulePath, ClassLoader.getSystemClassLoader());
+            Object tempPathList = XposedHelpers.getObjectField(tempLoader, "pathList");
+            Object[] tempDexElements = (Object[]) XposedHelpers.getObjectField(tempPathList, "dexElements");
+
+            // Nối 2 array dexElements lại
+            Object[] newElements = (Object[]) java.lang.reflect.Array.newInstance(dexElements.getClass().getComponentType(), dexElements.length + tempDexElements.length);
+            System.arraycopy(dexElements, 0, newElements, 0, dexElements.length);
+            System.arraycopy(tempDexElements, 0, newElements, dexElements.length, tempDexElements.length);
+
+            // Ghi đè vào ClassLoader
+            XposedHelpers.setObjectField(pathList, "dexElements", newElements);
+            XposedBridge.log("IRRemoteXposed: Successfully injected module dex into app classloader.");
+        } catch (Throwable t) {
+            XposedBridge.log("IRRemoteXposed: Failed to inject dex elements - " + t.getMessage());
+            // Fallback
             XposedHelpers.findAndHookMethod(ClassLoader.class, "loadClass", String.class, boolean.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    String className = (String) param.args[0];
-                    if (TARGET_CLASS.equals(className)) {
-                        // Trả về class OplusFeatureConfigManager thuộc ClassLoader của module Xposed
-                        param.setResult(com.oplus.content.OplusFeatureConfigManager.class);
-                    }
+                    if (TARGET_CLASS.equals(param.args[0])) param.setResult(com.oplus.content.OplusFeatureConfigManager.class);
                 }
             });
+        }
 
             // 2. Vá lỗi "No Network Connection" cục bộ (Local Checks)
             Class<?> j0Class = XposedHelpers.findClassIfExists("b7.j0", lpparam.classLoader);
