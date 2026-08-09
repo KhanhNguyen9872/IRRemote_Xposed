@@ -59,6 +59,42 @@ public class MainModule implements IXposedHookLoadPackage, IXposedHookZygoteInit
                 }
             });
         }
+        
+        // Fix COUI NumberPicker crash on non-ColorOS ROMs.
+        //
+        // The module dex must be injected before loading w1.a because
+        // w1.a directly references the ColorOS-only
+        // com.oplus.os.LinearmotorVibrator class.
+        try {
+            Class<?> hapticClass =
+                    XposedHelpers.findClassIfExists(
+                            "w1.a",
+                            lpparam.classLoader
+                    );
+
+            if (hapticClass != null) {
+                XposedBridge.hookAllMethods(
+                        hapticClass,
+                        "e",
+                        XC_MethodReplacement.DO_NOTHING
+                );
+
+                XposedBridge.log(
+                        "IRRemoteXposed: installed COUI " +
+                        "linear-motor no-op hook"
+                );
+            } else {
+                XposedBridge.log(
+                        "IRRemoteXposed: haptic helper w1.a " +
+                        "was not found"
+                );
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(
+                    "IRRemoteXposed: failed to install " +
+                    "haptic compatibility hook - " + t
+            );
+        }
 
             // 2. Vá lỗi "No Network Connection" cục bộ (Local Checks)
             Class<?> j0Class = XposedHelpers.findClassIfExists("b7.j0", lpparam.classLoader);
